@@ -1,4 +1,20 @@
-
+#' Load an Excel reporting template
+#'
+#' Returns a list with a reference to the workbook object and vector of
+#' template names.
+#'
+#' @param template_name path to Excel template
+#'
+#' @returns
+#' a list with a reference to the workbook object and vector of
+#' template names.
+#'
+#' @examples
+#'
+#' \dontrun{
+#' report_obj <- load_xl_template("templates/report_template.xlsx")
+#' }
+#' @export
 load_xl_template <- function(template_name) {
   wb <- XLConnect::loadWorkbook(template_name)
   XLConnect::setStyleAction(wb, XLConnect::XLC$"STYLE_ACTION.NONE")
@@ -15,7 +31,22 @@ load_xl_template <- function(template_name) {
   )
 }
 
-
+#' Duplicate a template within an Excel reporting template workbook
+#'
+#' Modifies the wb object
+#'
+#' @param template_name path to Excel template
+#'
+#' @returns
+#' a list with a reference to the workbook object and vector of
+#' template names.
+#'
+#' @examples
+#'
+#' \dontrun{
+#' wb_obj <- load_xl_template("templates/report_template.xlsx")
+#' }
+#' @export
 duplicate_template_sheet <- function(wb, template_name, uniq_name) {
   XLConnect::cloneSheet(wb, sheet = template_name, name = uniq_name)
 
@@ -54,7 +85,7 @@ duplicate_template_sheet <- function(wb, template_name, uniq_name) {
 }
 
 
-
+#' @export
 get_named_ranges_for_sheet <- function(wb, sheet_name) {
   named_ranges <- XLConnect::getReferenceFormula(
     wb, XLConnect::getDefinedNames(wb)
@@ -67,8 +98,12 @@ get_named_ranges_for_sheet <- function(wb, sheet_name) {
 }
 
 
+#' @export
+cleanup_template <- function(rpt_obj) {
 
-cleanup_template <- function(wb, templates) {
+  wb <- rpt_obj$wb
+  templates <- rpt_obj$templates
+
   for (i in 1:length(templates)) {
     XLConnect::removeSheet(wb, templates[i])
 
@@ -86,53 +121,54 @@ cleanup_template <- function(wb, templates) {
 }
 
 
-
+#' @export
 insert_columns <- function(df, column_content, positions) {
   positions <- positions[order(positions)]
 
   for (i in 1:length(positions)) {
     position <- positions[i]
 
-    n.orig.cols <- NCOL(df)
+    n_orig_cols <- NCOL(df)
 
     # position can't be greater than number of columns + 1
     position <- ifelse(
-      position > (n.orig.cols + 1),
-      (n.orig.cols + 1),
+      position > (n_orig_cols + 1),
+      (n_orig_cols + 1),
       position
     )
 
     # Determine column name. The convention will be Insert.01, Insert.02, etc.
     # Check for previously inserted columns.
-    current.cols <- names(df)
-    num.prev.inserted.cols <- sum(
-      stringr::str_detect(current.cols, "^Insert.[0-9]+"),
+    current_cols <- names(df)
+    num_prev_inserted_cols <- sum(
+      stringr::str_detect(current_cols, "^Insert.[0-9]+"),
       na.rm = TRUE
     )
-    new.col.name <- stringr::str_c(
+    new_col_name <- stringr::str_c(
       "Insert",
-      sprintf("%02d", num.prev.inserted.cols + 1),
+      sprintf("%02d", num_prev_inserted_cols + 1),
       sep = "."
     )
 
     # Set up final column order
-    begin.cols <- ifelse((1:n.orig.cols) < position, current.cols, NA)
-    end.cols <- ifelse((1:n.orig.cols) >= position, current.cols, NA)
+    begin_cols <- ifelse((1:n_orig_cols) < position, current_cols, NA)
+    end_cols <- ifelse((1:n_orig_cols) >= position, current_cols, NA)
 
-    new.col.order <- c(begin.cols, new.col.name, end.cols)
-    new.col.order <- new.col.order[stats::complete.cases(new.col.order)]
+    new_col_order <- c(begin_cols, new_col_name, end_cols)
+    new_col_order <- new_col_order[stats::complete.cases(new_col_order)]
 
     # Add column
-    df[, new.col.name] <- column_content
+    df[, new_col_name] <- column_content
 
     # Put new column in proper order
 
-    df <- df[, new.col.order]
+    df <- df[, new_col_order]
   }
 
   return(df)
 }
 
+#' @export
 insert_rows <- function(df, before_rows, row_content = NA, repeat_row_content = FALSE) {
   blank_row <- df[1, ]
   blank_row[1, ] <- NA
@@ -178,7 +214,7 @@ insert_rows <- function(df, before_rows, row_content = NA, repeat_row_content = 
   return(df)
 }
 
-
+#' @export
 write_named_region_safe <- function(file, data, name, nrows = 5000) {
   header <- TRUE
   cat(stringr::str_c("          rows left in df: ", nrow(data), "\n"))
@@ -207,6 +243,7 @@ write_named_region_safe <- function(file, data, name, nrows = 5000) {
   )
 }
 
+#' @export
 append_named_region_safe <- function(object, data, name, nrows = 5000) {
   header <- TRUE
   cat(stringr::str_c("          rows left in df: ", nrow(data), "\n"))
@@ -233,6 +270,7 @@ append_named_region_safe <- function(object, data, name, nrows = 5000) {
   )
 }
 
+#' @export
 update_report_names <- function(lst, prefix, sep = "_") {
   for (i in 1:length(lst)) {
     rpt_name <- attr(lst[[i]], "name")
@@ -244,6 +282,7 @@ update_report_names <- function(lst, prefix, sep = "_") {
   return(lst)
 }
 
+#' @export
 write_report_object <- function(xl_obj, data_obj) {
   XLConnect::setStyleAction(xl_obj, XLConnect::XLC$"STYLE_ACTION.NONE")
 
@@ -260,6 +299,8 @@ write_report_object <- function(xl_obj, data_obj) {
 
   if (obj_type == "ggplot") {
     fig_dims <- attr(data_obj, "dims")
+    original_size = attr(data_obj, "os")
+    scale = attr(data_obj, "scale")
 
     tmp_fig_file <- fs::file_temp(
       tmp_dir = here::here(), ext = "png"
@@ -268,13 +309,15 @@ write_report_object <- function(xl_obj, data_obj) {
     ggplot2::ggsave(
       tmp_fig_file, data_obj,
       height = fig_dims[1], width = fig_dims[2], dpi = 288,
-      bg = "white"
+      bg = "white",
+      scale = scale,
+      type = "cairo"
     )
     XLConnect::addImage(
       xl_obj,
       tmp_fig_file,
       attr(data_obj, "name"),
-      originalSize = FALSE
+      originalSize = original_size
     )
 
     # remove temp file
@@ -294,13 +337,14 @@ write_report_object <- function(xl_obj, data_obj) {
   }
 }
 
+#' @export
 report_reportables <- function(xl_obj, tpl_name, instance_name, rpt_list) {
-  duplicate_template_sheet(xl_obj, tpl_name, instance_name)
+  duplicate_template_sheet(xl_obj$wb, tpl_name, instance_name)
 
   # update names in rpt_list
   rpt_list <- update_report_names(rpt_list, instance_name)
 
   for (i in 1:length(rpt_list)) {
-    write_report_object(xl_obj, rpt_list[[i]])
+    write_report_object(xl_obj$wb, rpt_list[[i]])
   }
 }
