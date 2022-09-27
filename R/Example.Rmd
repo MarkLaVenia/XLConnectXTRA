@@ -1,0 +1,52 @@
+---
+title: "Example"
+author: "ML"
+date: '2022-07-25'
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## load packages
+
+```{r}
+
+library(tidyverse)
+library(XLConnect)
+
+#install.packages("XLConnectXTRA")
+
+setwd("C:/Users/MarkLaVenia/GitHub/XLConnectXTRA")
+
+```
+
+
+## XLConnect
+
+```{r}
+
+## Not run: 
+# Load workbook; create if not existing
+wb <- loadWorkbook("data/XLConnect.xlsx", create = TRUE)
+
+# Create a worksheet
+createSheet(wb, name = "mtcars")
+
+# Create a name reference
+createName(wb, name = "mtcars", formula = "mtcars!$C$5")
+
+# Write built-in data.frame 'mtcars' to the specified named region
+writeNamedRegion(wb, mtcars, name = "mtcars")
+
+# Save workbook
+saveWorkbook(wb)
+
+# clean up 
+file.remove("data/XLConnect.xlsx")
+
+## End(Not run)
+
+```
+
